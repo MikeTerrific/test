@@ -18,47 +18,36 @@ def get_ratings():
     try:
         soup = BeautifulSoup(response.text, "html.parser")
 
-        all_tables = soup.find_all("table")
-        target_table = None
-        for tbl in all_tables:
-            tbl_classes = tbl.get("class", [])
-            if any("mytable" in cls for cls in tbl_classes):
-                headers = [th.text.strip().lower() for th in tbl.find_all("th")]
-                if "team" in headers and "rat" in headers:
-                    target_table = tbl
-                    break
-
-        if not target_table:
-            st.error("Could not find a valid ratings table. Structure may have changed.")
+        table = soup.find("table", id="tbl")
+        if not table:
+            st.error("Could not find table with id='tbl'. Structure may have changed.")
             return {}
 
         ratings = {}
-        rows = target_table.select("tbody > tr")
+        rows = table.find("tbody").find_all("tr")
         if not rows:
-            st.error("No rows found in table body. Table may be empty or improperly parsed.")
+            st.error("No rows found in table body.")
             return {}
 
         for i, row in enumerate(rows):
             try:
                 cols = row.find_all("td")
                 if len(cols) < 3:
-                    st.warning(f"Row {i} skipped: not enough columns.")
                     continue
 
-                team_cell = cols[0]
-                team_link = team_cell.find("a")
-                team_name = team_link.text.strip() if team_link else team_cell.text.strip()
+                team_td = cols[0]
+                team_link = team_td.find("a")
+                team_name = team_link.text.strip() if team_link else team_td.text.strip()
 
-                rating_cell = cols[2]
-                rating_div = rating_cell.find("div", class_="detail")
+                rating_td = cols[2]
+                rating_div = rating_td.find("div", class_="detail")
                 if not rating_div:
-                    st.warning(f"Row {i} ({team_name}) skipped: no rating div.")
                     continue
 
                 rating = float(rating_div.text.strip())
                 ratings[team_name] = rating
             except Exception as e:
-                st.warning(f"Error parsing row {i}: {e}")
+                st.warning(f"Row {i} skipped due to parsing error: {e}")
                 continue
 
         if not ratings:
