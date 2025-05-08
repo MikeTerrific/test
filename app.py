@@ -18,19 +18,20 @@ def get_ratings():
     try:
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Find the div that contains the table by id
-        table_div = soup.find("div", id="mytable0")
-        if not table_div:
-            st.error("Could not find div with id='mytable0'. Structure may have changed.")
-            return {}
+        # Attempt to find the correct table using class name and structure
+        all_tables = soup.find_all("table")
+        target_table = None
+        for tbl in all_tables:
+            if "mytable" in tbl.get("class", []) and tbl.find("thead") and tbl.find("tbody"):
+                target_table = tbl
+                break
 
-        table = table_div.find("table")
-        if not table:
-            st.error("Could not find a table inside div with id='mytable0'.")
+        if not target_table:
+            st.error("Could not find a valid ratings table. Structure may have changed.")
             return {}
 
         ratings = {}
-        rows = table.select("tbody > tr")
+        rows = target_table.select("tbody > tr")
         if not rows:
             st.error("No rows found in table body. Table may be empty or improperly parsed.")
             return {}
