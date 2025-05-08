@@ -1,32 +1,35 @@
 import streamlit as st
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
+import requests
+from bs4 import BeautifulSoup
 from scipy.stats import norm
 
 @st.cache_data
 def get_ratings():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
     url = "https://masseyratings.com/wnba/ratings"
-    driver.get(url)
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    rows = driver.find_elements(By.XPATH, '//table[@id="tbl"]/tbody/tr')
+    table = soup.find("table", {"id": "tbl"})
+    if not table:
+        return {}
+
+    tbody = table.find("tbody")
+    rows = tbody.find_all("tr")
     ratings = {}
+
     for row in rows:
-        try:
-            team_cell = row.find_element(By.CLASS_NAME, 'fteam')
-            team_name = team_cell.find_element(By.TAG_NAME, 'a').text.strip()
-            rating_cell = row.find_elements(By.CLASS_NAME, 'frank')[0]
-            rating_value = float(rating_cell.find_element(By.CLASS_NAME, 'detail').text.strip())
-            ratings[team_name] = rating_value
-        except:
-            continue
-    driver.quit()
+        cols = row.find_all("td")
+        if len(cols) >= 3:
+            try:
+                team_name = cols[0].find("a").text.strip()
+                rating_detail = cols[2].find("div", class_="detail")
+                if rating_detail:
+                    rating = float(rating_detail.text.strip())
+                    ratings[team_name] = rating
+            except:
+                continue
+
     return ratings
 
 # UI
@@ -45,3 +48,4 @@ if ratings:
         st.metric(label=f"Win Probability: {team_b}", value=f"{(1-prob):.2%}")
 else:
     st.error("Failed to load Massey Ratings.")
+
