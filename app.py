@@ -14,21 +14,24 @@ def get_ratings():
     if not table:
         return {}
 
-    tbody = table.find("tbody")
-    rows = tbody.find_all("tr")
     ratings = {}
+    rows = table.select("tbody > tr")
 
     for row in rows:
-        cols = row.find_all("td")
-        if len(cols) >= 3:
-            try:
-                team_name = cols[0].find("a").text.strip()
-                rating_detail = cols[2].find("div", class_="detail")
-                if rating_detail:
-                    rating = float(rating_detail.text.strip())
-                    ratings[team_name] = rating
-            except:
-                continue
+        try:
+            # Team name is in the first <td> with a nested <a>
+            team_cell = row.find_all("td")[0]
+            team_link = team_cell.find("a")
+            team_name = team_link.text.strip() if team_link else team_cell.text.strip()
+
+            # Rating is in the third <td> (index 2) and inside a <div class='detail'>
+            rating_cell = row.find_all("td")[2]
+            rating_div = rating_cell.find("div", class_="detail")
+            rating = float(rating_div.text.strip())
+
+            ratings[team_name] = rating
+        except:
+            continue
 
     return ratings
 
@@ -48,4 +51,3 @@ if ratings:
         st.metric(label=f"Win Probability: {team_b}", value=f"{(1-prob):.2%}")
 else:
     st.error("Failed to load Massey Ratings.")
-
