@@ -18,9 +18,9 @@ def get_ratings():
     try:
         soup = BeautifulSoup(response.text, "html.parser")
 
-        table = soup.find("table", id="tbl")
+        table = soup.find("table", class_="mytable")
         if not table:
-            st.error("Could not find table with id='tbl'. Structure may have changed.")
+            st.error("Could not find table with class='mytable'. Structure may have changed.")
             return {}
 
         ratings = {}
