@@ -18,13 +18,15 @@ def get_ratings():
     try:
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Attempt to find the correct table using class name and structure
         all_tables = soup.find_all("table")
         target_table = None
         for tbl in all_tables:
-            if "mytable" in tbl.get("class", []) and tbl.find("thead") and tbl.find("tbody"):
-                target_table = tbl
-                break
+            tbl_classes = tbl.get("class", [])
+            if any("mytable" in cls for cls in tbl_classes):
+                headers = [th.text.strip().lower() for th in tbl.find_all("th")]
+                if "team" in headers and "rat" in headers:
+                    target_table = tbl
+                    break
 
         if not target_table:
             st.error("Could not find a valid ratings table. Structure may have changed.")
