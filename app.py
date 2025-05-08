@@ -17,9 +17,16 @@ def get_ratings():
 
     try:
         soup = BeautifulSoup(response.text, "html.parser")
-        table = soup.find("table", {"id": "tbl"})
+
+        # Find the div that contains the table by id
+        table_div = soup.find("div", id="mytable0")
+        if not table_div:
+            st.error("Could not find div with id='mytable0'. Structure may have changed.")
+            return {}
+
+        table = table_div.find("table")
         if not table:
-            st.error("Could not find table with id='tbl'. Structure may have changed.")
+            st.error("Could not find a table inside div with id='mytable0'.")
             return {}
 
         ratings = {}
@@ -75,4 +82,3 @@ if ratings:
         st.metric(label=f"Win Probability: {team_b}", value=f"{(1-prob):.2%}")
 else:
     st.error("Failed to load Massey Ratings. Check above for detailed errors.")
-
