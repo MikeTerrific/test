@@ -7,33 +7,57 @@ from scipy.stats import norm
 def get_ratings():
     url = "https://masseyratings.com/wnba/ratings"
     headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
 
-    table = soup.find("table", {"id": "tbl"})
-    if not table:
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Request failed: {e}")
         return {}
 
-    ratings = {}
-    rows = table.select("tbody > tr")
+    try:
+        soup = BeautifulSoup(response.text, "html.parser")
+        table = soup.find("table", {"id": "tbl"})
+        if not table:
+            st.error("Could not find table with id='tbl'. Structure may have changed.")
+            return {}
 
-    for row in rows:
-        try:
-            # Team name is in the first <td> with a nested <a>
-            team_cell = row.find_all("td")[0]
-            team_link = team_cell.find("a")
-            team_name = team_link.text.strip() if team_link else team_cell.text.strip()
+        ratings = {}
+        rows = table.select("tbody > tr")
+        if not rows:
+            st.error("No rows found in table body. Table may be empty or improperly parsed.")
+            return {}
 
-            # Rating is in the third <td> (index 2) and inside a <div class='detail'>
-            rating_cell = row.find_all("td")[2]
-            rating_div = rating_cell.find("div", class_="detail")
-            rating = float(rating_div.text.strip())
+        for i, row in enumerate(rows):
+            try:
+                cols = row.find_all("td")
+                if len(cols) < 3:
+                    st.warning(f"Row {i} skipped: not enough columns.")
+                    continue
 
-            ratings[team_name] = rating
-        except:
-            continue
+                team_cell = cols[0]
+                team_link = team_cell.find("a")
+                team_name = team_link.text.strip() if team_link else team_cell.text.strip()
 
-    return ratings
+                rating_cell = cols[2]
+                rating_div = rating_cell.find("div", class_="detail")
+                if not rating_div:
+                    st.warning(f"Row {i} ({team_name}) skipped: no rating div.")
+                    continue
+
+                rating = float(rating_div.text.strip())
+                ratings[team_name] = rating
+            except Exception as e:
+                st.warning(f"Error parsing row {i}: {e}")
+                continue
+
+        if not ratings:
+            st.error("Parsed table but found no valid team ratings.")
+        return ratings
+
+    except Exception as e:
+        st.error(f"HTML parsing failed: {e}")
+        return {}
 
 # UI
 st.title("WNBA Win Probability Calculator")
@@ -50,4 +74,5 @@ if ratings:
         st.metric(label=f"Win Probability: {team_a}", value=f"{prob:.2%}")
         st.metric(label=f"Win Probability: {team_b}", value=f"{(1-prob):.2%}")
 else:
-    st.error("Failed to load Massey Ratings.")
+    st.error("Failed to load Massey Ratings. Check above for detailed errors.")
+
